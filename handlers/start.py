@@ -1,9 +1,10 @@
-from aiogram import Router, types
+from aiogram import Router,F, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup
 
 start_router = Router()
 id_list = []
+
 
 @start_router.message(Command('start'))
 async def start_handler(message: types.Message):
@@ -22,11 +23,23 @@ async def start_handler(message: types.Message):
                 text="my tg channel",
                 url="https://web.telegram.org/a/",
             )
+        ],
+        [
+            types.InlineKeyboardButton(
+                text="opros",
+                callback_data="/opros"
+            )
         ]
         ]
     )
+
     await message.answer(msg, reply_markup=kb)
     us_id = message.from_user.id
     if us_id not in id_list:
         id_list.append(us_id)
     await message.answer(f"my bot was used by {len(id_list)} users")
+
+
+@start_router.callback_query(F.data == "/opros")
+async def opros(Callback: types.CallbackQuery):
+    await Callback.message.answer("/opros")

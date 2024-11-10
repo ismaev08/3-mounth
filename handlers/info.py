@@ -8,4 +8,6 @@ async def start_handler(message: types.Message):
     name = message.from_user.first_name
     us_id = message.from_user.id
     us_name = message.from_user.username
-    await message.answer(f"your id is: {us_id}, your name is: {name}, your username is: {us_name}")
+    await message.answer(f"your id is: {us_id}\n"
+                         f" your name : {name}\n"
+                         f" your username is: @{us_name}")
