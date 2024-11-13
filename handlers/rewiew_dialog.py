@@ -103,6 +103,7 @@ async def receive_extra_comments(message: Message, state: FSMContext):
     await state.update_data(extra_comments=message.text)
 
 
+
     user_data = await state.get_data()
     review_text = (
         f"Спасибо за отзыв!\n\n"
