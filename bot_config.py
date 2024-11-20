@@ -1,9 +1,9 @@
-from aiogram import Bot, Dispatcher
 from dotenv import dotenv_values
-
-from database.database import Database
+from aiogram import Bot, Dispatcher
+from database.table import Database
 
 token = dotenv_values(".env")["BOT_TOKEN"]
 bot = Bot(token=token)
 dp = Dispatcher()
-database = Database("database.sqlite")
+
+database = Database("database.db")

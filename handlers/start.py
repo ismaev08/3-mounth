@@ -1,41 +1,38 @@
-from aiogram import Router, types, F
+from aiogram import Router, types
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup
 
-reviewed_users = set()
 start_router = Router()
+id_list = []
 
-@start_router.message(Command("start"))
+@start_router.message(Command('start'))
 async def start_handler(message: types.Message):
     name = message.from_user.first_name
-    msg = f"Привет, {name}! Добро пожаловать! Вы можете узнать больше о нас или оставить отзыв."
+    msg = f"Привет {name}, {message.from_user.id}"
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="Наш Instagram",
-                    url="https://tinyurl.com/7b8rm9ep"
-                ),
-                InlineKeyboardButton(
-                    text="Наш сайт",
-                    url="https://tinyurl.com/msrr3t47"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="О Нас",
-                    callback_data="about"
-                ),
-                InlineKeyboardButton(
-                    text="Оставить отзыв",
-                    callback_data="review"
-                )
-            ]
+        [
+            types.InlineKeyboardButton(
+                text="my profile inst",
+                url="https://www.instagram.com/_ismaev_11/",
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
+                text="my tg channel",
+                url="https://web.telegram.org/a/",
+            )
+        ],
+        [
+            types.InlineKeyboardButton(
+                text="leave feedback",
+                callback_data="review"
+            )
         ]
-    )
+    ]
+)
     await message.answer(msg, reply_markup=kb)
-
-
-@start_router.callback_query(F.data == "about")
-async def send_about_info(callback_query: types.CallbackQuery):
-    await callback_query.message.answer("Мы – команда, создавшая бота, который помогает ресторанам!")
+    us_id = message.from_user.id
+    if us_id not in id_list:
+        id_list.append(us_id)
+    await message.answer(f"my bot was used by {len(id_list)} users")

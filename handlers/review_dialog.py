@@ -1,149 +1,83 @@
-from aiogram import types, Router, F
+from aiogram.filters import Command
+from aiogram import Router, types, F
+from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, ReplyKeyboardMarkup, KeyboardButton
-from aiogram.fsm.state import State, StatesGroup
-from datetime import datetime, timedelta
-from database.database import Database
+from aiogram.fsm.state import StatesGroup, State
+import items.kb as kb
+
+from bot_config import database
 
 review_router = Router()
 
+
 class RestaurantReview(StatesGroup):
     name = State()
-    user_contact = State()
-    date_visit = State()
+    phone_number = State()
+    visit_date = State()
     food_rating = State()
     cleanliness_rating = State()
     extra_comments = State()
-    finish = State()
 
-def rating_keyboard():
-    buttons = [[KeyboardButton(text=str(i)) for i in range(1, 6)]]
-    return ReplyKeyboardMarkup(
-        keyboard=buttons,
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
-
-
+@review_router.message(Command("stop"))
+@review_router.message(F.text == "стоп")
+async def stop_dialog(message: types.Message, state: FSMContext):
+    await state.clear()
+    await message.answer("опрос остановлен")
 
 
 @review_router.callback_query(F.data == "review")
-async def start_review(callback_query: CallbackQuery, state: FSMContext):
-    db = Database("C:/Users/islam/PycharmProjects/month3projects/database.sqlite")
-    await state.update_data(db=db)
-
-    await state.set_state(RestaurantReview.name)
+async def start_review(callback_query: types.CallbackQuery, state: FSMContext):
     await callback_query.message.answer("Как вас зовут?")
-
+    await state.set_state(RestaurantReview.name)
+    await callback_query.answer()
 
 
 @review_router.message(RestaurantReview.name)
-async def process_name(message: types.Message, state: FSMContext):
+async def ask_name(message: Message, state: FSMContext):
     await state.update_data(name=message.text)
-    await state.set_state(RestaurantReview.user_contact)
-    await message.answer("Введите ваш номер телефона:")
+    await message.answer("Ваш номер телефона:")
+    await state.set_state(RestaurantReview.phone_number)
 
-@review_router.message(RestaurantReview.user_contact)
-async def process_user_contact(message: types.Message, state: FSMContext):
-    await state.update_data(user_contact=message.text)
-    await state.set_state(RestaurantReview.date_visit)
-    await message.answer("Введите дату вашего визита (например, 2024-11-11):")
 
-@review_router.message(RestaurantReview.date_visit)
-async def process_date_visit(message: types.Message, state: FSMContext):
-    try:
-        date_visit = datetime.strptime(message.text, "%Y-%m-%d").date()
-        today = datetime.today().date()
+@review_router.message(RestaurantReview.phone_number)
+async def ask_phone(message: Message, state: FSMContext):
+    await state.update_data(phone_number=message.text)
+    await message.answer("введите дату вашего посещения (в формате ДД,ММ,ГГГГ)")
+    await state.set_state(RestaurantReview.visit_date)
 
-        if date_visit > today:
-            await message.answer("Дата визита не может быть в будущем. Пожалуйста, введите корректную дату.")
-        elif date_visit < today - timedelta(days=5 * 365):
-            await message.answer("Дата визита не может быть старше 5 лет. Пожалуйста, введите актуальную дату.")
-        else:
-            await state.update_data(date_visit=str(date_visit))
-            await state.set_state(RestaurantReview.food_rating)
-            await message.answer(
-                "Введите оценку еды (1 - очень плохо, 5 - замечательно):",
-                reply_markup=rating_keyboard()
-            )
-    except ValueError:
-        await message.answer("Пожалуйста, введите дату в формате ГГГГ-ММ-ДД, например, 2024-11-11.")
 
-@review_router.message(RestaurantReview.food_rating)
-async def process_food_rating(message: types.Message, state: FSMContext):
-    if message.text.isdigit() and 1 <= int(message.text) <= 5:
-        await state.update_data(food_rating=int(message.text))
-        await state.set_state(RestaurantReview.cleanliness_rating)
-        await message.answer(
-            "Введите оценку чистоты (1 - очень плохо, 5 - замечательно):",
-            reply_markup=rating_keyboard()
-        )
-    else:
-        await message.answer("Пожалуйста, введите число от 1 до 5 для оценки еды.")
+@review_router.message(RestaurantReview.visit_date)
+async def ask_visit_date(message: Message, state: FSMContext):
+    await state.update_data(visit_date=message.text)
+    await message.answer("оцените качество еды", reply_markup=kb.rating_kb())
+    await state.set_state(RestaurantReview.food_rating)
 
-@review_router.message(RestaurantReview.cleanliness_rating)
-async def process_cleanliness_rating(message: types.Message, state: FSMContext):
-    if message.text.isdigit() and 1 <= int(message.text) <= 5:
-        await state.update_data(cleanliness_rating=int(message.text))
-        await state.set_state(RestaurantReview.extra_comments)
-        await message.answer("Пожалуйста, добавьте дополнительные комментарии или жалобы, если они есть:")
-    else:
-        await message.answer("Оценка чистоты должна быть числом от 1 до 5. Пожалуйста, попробуйте снова.")
+
+@review_router.message(RestaurantReview.food_rating, F.text.in_(["1", "2", "3", "4", "5"]))
+async def ask_food_rating(message: Message, state: FSMContext):
+    await state.update_data(food_rating=message.text)
+    await message.answer("оцените качество чистоты", reply_markup=kb.rating_kb())
+    await state.set_state(RestaurantReview.cleanliness_rating)
+
+
+@review_router.message(RestaurantReview.cleanliness_rating, F.text.in_(["1", "2", "3", "4", "5"]))
+async def ask_cleanliness_rating(message: Message, state: FSMContext):
+    await state.update_data(cleanliness_rating=message.text)
+    await message.answer("дополнительные комментарии:", reply_markup=ReplyKeyboardRemove())
+    await state.set_state(RestaurantReview.extra_comments)
+
 
 @review_router.message(RestaurantReview.extra_comments)
-async def process_extra_comments(message: types.Message, state: FSMContext):
+async def ask_extra_comments(message: Message, state: FSMContext):
     await state.update_data(extra_comments=message.text)
-    user_data = await state.get_data()
-    review_text = (
-        f"Проверьте ваш отзыв перед отправкой:\n\n"
-        f"Имя: {user_data['name']}\n"
-        f"Контакт: {user_data['user_contact']}\n"
-        f"Дата визита: {user_data['date_visit']}\n"
-        f"Оценка еды: {user_data['food_rating']}/5\n"
-        f"Оценка чистоты: {user_data['cleanliness_rating']}/5\n"
-        f"Комментарий: {user_data['extra_comments']}\n\n"
-        f"Подтвердите отправку."
+    await message.answer("спасибо за пройденный опрос")
+    data = await state.get_data()
+    print(data)
+    database.execute(
+        query="""
+    INSERT INTO reviews (name, phone_number, visit_date, food_rating, cleanliness_rating, extra_comments)
+    VALUES (?, ?, ?, ?, ?, ?)
+    """,
+        params=(data["name"], data["phone_number"], data["visit_date"], data["food_rating"], data["cleanliness_rating"], data["extra_comments"])
     )
-    await message.answer(review_text, reply_markup=confirm_keyboard())
-    await state.set_state(RestaurantReview.finish)
-
-def confirm_keyboard():
-    buttons = [
-        [KeyboardButton(text="✅ Подтвердить"), KeyboardButton(text="❌ Отменить")]
-    ]
-    return ReplyKeyboardMarkup(
-        keyboard=buttons,
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
-
-@review_router.message(RestaurantReview.finish)
-async def finish_review(message: types.Message, state: FSMContext):
-    user_data = await state.get_data()
-    db = user_data.get('db')
-    if message.text == "✅ Подтвердить":
-        try:
-            db.execute(
-                """
-                INSERT INTO reviews (user_id, name, contact_info, visit_date, food_rating, cleanliness_rating, extra_comments)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    message.from_user.id,
-                    user_data['name'],
-                    user_data['user_contact'],
-                    user_data['date_visit'],
-                    user_data['food_rating'],
-                    user_data['cleanliness_rating'],
-                    user_data['extra_comments']
-                )
-            )
-            await message.answer("Спасибо за ваш отзыв!", reply_markup=types.ReplyKeyboardRemove())
-        except Exception as e:
-            await message.answer(f"Произошла ошибка при сохранении отзыва: {e}")
-        await state.clear()
-    elif message.text == "❌ Отменить":
-        await message.answer("Отзыв отменен.", reply_markup=types.ReplyKeyboardRemove())
-        await state.clear()
-    else:
-        await message.answer("Пожалуйста, используйте кнопки для подтверждения или отмены.")
+    await state.clear()
